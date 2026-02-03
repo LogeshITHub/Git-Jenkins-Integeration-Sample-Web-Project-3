@@ -103,6 +103,11 @@ pipeline {
                         echo "Ensure vite binary exists"
                         ls -l node_modules/.bin | grep vite
 
+                        echo "Creating .env file for production"
+                        # Set VITE_API_URL to point to the backend service.
+                        # IMPORTANT: Replace YOUR_SERVER_IP with your server's public IP or domain name.
+                        echo "VITE_API_URL=https://longest-glass-weapon-christopher.trycloudflare.com/api" > .env
+
                         echo "Build React app"
                         npm run build
                     '''
