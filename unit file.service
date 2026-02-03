@@ -4,7 +4,7 @@ productapp-frontend.service
 Description=Product App Frontend React Application
 After=network.target
  
-[Service]
+[Service] 
 Type=simple
 User=www-data
 Restart=always
