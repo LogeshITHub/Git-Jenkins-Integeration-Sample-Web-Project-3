@@ -1,16 +1,9 @@
+Backend : 
+
 pipeline {
     agent any
-
-    environment {
-        // Set NODE_ENV to development so devDependencies (like vite) are installed
-        NODE_ENV = 'development'
-    }
-
     stages {
-        // ==========================================
-        // BACKEND STAGES
-        // ==========================================
-        stage('Backend: Stop Service') {
+        stage('Stop Service') {
             steps {
                 sh '''
                     echo "Stopping productapp service..."
@@ -19,23 +12,15 @@ pipeline {
                 '''
             }
         }
-
-        stage('Backend: Build & Publish') {
+        
+        stage('Deploy') {
             steps {
-                // Note: GIT checkout is handled automatically by "Pipeline script from SCM"
+                git 'https://github.com/LogeshITHub/Git-Jenkins-Integeration-Sample-Web-Project-3a.git'
                 sh '''
-                    echo "Restoring and Building Backend..."
                     dotnet restore
                     dotnet build --configuration Release
                     dotnet publish ProductApp.API/ProductApp.API.csproj --configuration Release --output /tmp/publish
-                '''
-            }
-        }
-
-        stage('Backend: Deploy') {
-            steps {
-                sh '''
-                    echo "Deploying Backend Artifacts..."
+                    
                     sudo mkdir -p /var/www/productapp
                     sudo rm -rf /var/www/productapp/*
                     sudo cp -r /tmp/publish/* /var/www/productapp/
@@ -44,8 +29,8 @@ pipeline {
                 '''
             }
         }
-
-        stage('Backend: Start Service') {
+        
+        stage('Start Service') {
             steps {
                 sh '''
                     echo "Starting productapp service..."
@@ -56,11 +41,36 @@ pipeline {
                 '''
             }
         }
+    }
+    
+    post {
+        success {
+            echo '✅ Pipeline successful! Triggering React Web Job... likes DownStream Job'
+            build job: 'Pipeline-Web-React-Dotnet-App-Superbase-PgsqlDB-2-Job-For-React-Web', wait: false
+        }
+        failure {
+            echo '❌ Pipeline failed - attempting to restart service'
+            sh '''
+                sudo systemctl restart productapp.service || true
+                echo "Service restart attempted"
+            '''
+        }
+    }
+}
 
-        // ==========================================
-        // FRONTEND STAGES
-        // ==========================================
-        stage('Frontend: Stop Service') {
+
+Frontend : 
+
+pipeline {
+    agent any
+
+    environment {
+        // Set NODE_ENV to development so devDependencies (like vite) are installed
+        NODE_ENV = 'development'
+    }
+
+    stages {
+        stage('Stop Frontend Service') {
             steps {
                 sh '''
                     echo "Stopping productapp-frontend service..."
@@ -69,40 +79,48 @@ pipeline {
             }
         }
 
-        stage('Frontend: Build') {
+        stage('Build Frontend') {
             steps {
+                git 'https://github.com/LogeshITHub/Git-Jenkins-Integeration-Sample-Web-Project-3a.git'
+
                 dir('frontend') {
                     sh '''
                         set -e
-                        echo "Frontend Workspace: $(pwd)"
+                        echo "Workspace:"
+                        pwd
                         
                         echo "Node & NPM versions"
                         node -v
                         npm -v
 
                         echo "Installing dependencies..."
-                        # Cleaning for fresh install
+                        # FIX: Using npm install + fresh start to ensure Linux-specific binaries
+                        # (like @rollup/rollup-linux-x64-gnu) are installed. 
+                        # Windows lockfiles often miss these.
                         rm -rf node_modules package-lock.json
                         npm install
 
+                        echo "Ensure vite binary exists"
+                        ls -l node_modules/.bin | grep vite
+
                         echo "Creating .env file for production"
                         # Set VITE_API_URL to point to the backend service.
+                        # IMPORTANT: Replace YOUR_SERVER_IP with your server's public IP or domain name.
                         echo "VITE_API_URL=https://longest-glass-weapon-christopher.trycloudflare.com/api" > .env
 
-                        echo "Building React app..."
+                        echo "Build React app"
                         npm run build
                     '''
                 }
             }
         }
 
-        stage('Frontend: Deploy') {
+        stage('Deploy Frontend') {
             steps {
                 sh '''
-                    echo "Deploying Frontend..."
+                    echo "Deploying frontend..."
                     sudo mkdir -p /var/www/productapp-frontend
                     sudo rm -rf /var/www/productapp-frontend/*
-                    # Copy dist files to web root
                     sudo cp -r frontend/dist/* /var/www/productapp-frontend/
                     sudo chown -R www-data:www-data /var/www/productapp-frontend
                     sudo chmod -R 755 /var/www/productapp-frontend
@@ -110,7 +128,7 @@ pipeline {
             }
         }
 
-        stage('Frontend: Start Service') {
+        stage('Start Frontend Service') {
             steps {
                 sh '''
                     echo "Starting productapp-frontend service..."
@@ -124,14 +142,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Full Stack Deployment Successful!'
+            echo '✅ Frontend deployed successfully'
         }
         failure {
-            echo '❌ Deployment Failed. Attempting to ensure services are running...'
-            sh '''
-                sudo systemctl restart productapp.service || true
-                sudo systemctl restart productapp-frontend.service || true
-            '''
+            echo '❌ Pipeline failed'
         }
     }
 }
