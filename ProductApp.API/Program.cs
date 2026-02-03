@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ProductApp.Application.Interfaces;
 using ProductApp.Application.Mappings;
 using ProductApp.Application.Services;
@@ -25,9 +26,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy
+            .AllowAnyOrigin()   // dev only
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
